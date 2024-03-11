@@ -1,21 +1,27 @@
-use std::{env::args, fs::read_to_string, process};
+use std::{env::args, error::Error, fs::read_to_string, process};
 
 fn main() {
     let args: Vec<String> = args().collect();
-    let Config {
-        query: _query,
-        file_path,
-    } = Config::build(&args).unwrap_or_else(|err| {
+    let config = Config::build(&args).unwrap_or_else(|err| {
         println!("Problem with parsing: {err}");
         process::exit(1)
     });
 
-    let contents = read_to_string(file_path).unwrap_or_else(|err| {
-        println!("Problem with reading file: {err}");
+    println!("Searching for {}", config.query);
+    println!("In file {}", config.file_path);
+
+    if let Err(e) = run(config) {
+        println!("Application error: {e}");
         process::exit(1)
-    });
+    }
+}
+
+fn run(config: Config) -> Result<(), Box<dyn Error>> {
+    let contents = read_to_string(config.file_path)?;
 
     println!("With text:\n{contents}");
+
+    Ok(())
 }
 
 struct Config {
@@ -30,9 +36,6 @@ impl Config {
         }
         let query = args[1].clone();
         let file_path = args[2].clone();
-
-        println!("Searching for '{query}'");
-        println!("In file '{file_path}'");
 
         Ok(Config { query, file_path })
     }

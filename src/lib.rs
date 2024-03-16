@@ -1,8 +1,4 @@
-use std::{
-    env::{self},
-    error::Error,
-    fs::read_to_string,
-};
+use std::{env, error::Error, fs::read_to_string};
 
 pub struct Config {
     pub query: String,
@@ -16,12 +12,12 @@ impl Config {
 
         let query = match args.next() {
             Some(arg) => arg,
-            None => return Err("Didnt get a query string"),
+            None => return Err("Didn't get a query string"),
         };
 
         let file_path = match args.next() {
             Some(arg) => arg,
-            None => return Err("Didnt get a file path"),
+            None => return Err("Didn't get a file path"),
         };
 
         let ignore_case = env::var("IGNORE_CASE").is_ok();
@@ -35,8 +31,12 @@ impl Config {
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let contents = read_to_string(config.file_path)?;
+    let contents = read_to_string(&config.file_path)?;
 
+    run_search(&config, &contents)
+}
+
+pub fn run_search(config: &Config, contents: &str) -> Result<(), Box<dyn Error>> {
     let result = if config.ignore_case {
         search_case_insensitive(&config.query, &contents)
     } else {

@@ -1,5 +1,6 @@
-use std::{env, error::Error, fs::read_to_string};
+use std::{env, error::Error, fs::read_to_string, sync::Arc, thread};
 
+#[derive(Debug)]
 pub struct Config {
     pub query: String,
     pub file_paths: Vec<String>,
@@ -34,12 +35,42 @@ impl Config {
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let contents = read_to_string(&config.file_paths[0])?;
+    let files_count = config.file_paths.len();
 
-    run_search(&config, &contents)
+    if files_count == 1 {
+        let contents = read_to_string(&config.file_paths[0])?;
+        run_search(&config, &contents);
+
+        return Ok(());
+    }
+
+    let config = Arc::new(config);
+    let mut handles = vec![];
+
+    for file_idx in 0..files_count {
+        let config = Arc::clone(&config);
+        let handle = thread::spawn(move || {
+            let path = &config.file_paths[file_idx];
+            let file_read = read_to_string(path);
+
+            println!("[{path}]: ");
+            match file_read {
+                Ok(contents) => run_search(&config, &contents),
+                Err(e) => eprintln!("Error when reading file: {e}"),
+            }
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap()
+    }
+
+    Ok(())
 }
 
-pub fn run_search(config: &Config, contents: &str) -> Result<(), Box<dyn Error>> {
+pub fn run_search(config: &Config, contents: &str) {
     let result = if config.ignore_case {
         search_case_insensitive(&config.query, &contents)
     } else {
@@ -49,8 +80,6 @@ pub fn run_search(config: &Config, contents: &str) -> Result<(), Box<dyn Error>>
     for line in result {
         println!("{line}")
     }
-
-    Ok(())
 }
 
 pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {

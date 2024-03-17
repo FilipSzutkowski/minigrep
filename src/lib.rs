@@ -1,4 +1,11 @@
-use std::{env, error::Error, fs::read_to_string, sync::Arc, thread};
+use std::{
+    env,
+    error::Error,
+    fs::read_to_string,
+    io::{stdout, Write},
+    sync::Arc,
+    thread,
+};
 
 #[derive(Debug)]
 pub struct Config {
@@ -38,7 +45,8 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let files_count = config.file_paths.len();
 
     if files_count == 1 {
-        let contents = read_to_string(&config.file_paths[0])?;
+        let path = &config.file_paths[0];
+        let contents = read_to_string(path)?;
         run_search(&config, &contents);
 
         return Ok(());
@@ -52,11 +60,20 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         let handle = thread::spawn(move || {
             let path = &config.file_paths[file_idx];
             let file_read = read_to_string(path);
+            let content: Box<String>;
 
-            println!("[{path}]: ");
             match file_read {
-                Ok(contents) => run_search(&config, &contents),
-                Err(e) => eprintln!("Error when reading file: {e}"),
+                Ok(read_contents) => content = Box::new(read_contents),
+                Err(e) => panic!("Error when reading file: {e}"),
+            };
+
+            let search_result = run_search(&config, &content);
+            let mut std_lock = stdout().lock();
+
+            writeln!(std_lock, "\n[{path}]: ").unwrap();
+
+            for result in search_result {
+                writeln!(std_lock, "{result}").unwrap();
             }
         });
 
@@ -64,22 +81,20 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     }
 
     for handle in handles {
-        handle.join().unwrap()
+        handle.join().unwrap();
     }
 
     Ok(())
 }
 
-pub fn run_search(config: &Config, contents: &str) {
+pub fn run_search<'a>(config: &Config, contents: &'a str) -> Vec<&'a str> {
     let result = if config.ignore_case {
         search_case_insensitive(&config.query, &contents)
     } else {
         search(&config.query, &contents)
     };
 
-    for line in result {
-        println!("{line}")
-    }
+    result
 }
 
 pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {

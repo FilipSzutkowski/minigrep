@@ -52,10 +52,12 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    // Config will have multiple borrowers
     let config = Arc::new(config);
     let mut handles = vec![];
 
     for file_idx in 0..files_count {
+        // Getting a new referance to config for moving
         let config = Arc::clone(&config);
         let handle = thread::spawn(move || {
             let path = &config.file_paths[file_idx];
@@ -63,11 +65,15 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
             let content: Box<String>;
 
             match file_read {
+                // Box for moving ownership upwards
                 Ok(read_contents) => content = Box::new(read_contents),
-                Err(e) => panic!("Error when reading file: {e}"),
+                Err(e) => panic!("Error when reading '{path}': {e}"),
             };
 
             let search_result = run_search(&config, &content);
+
+            // Locking stdout, so that the printed result
+            // appears in right order
             let mut std_lock = stdout().lock();
 
             writeln!(std_lock, "\n[{path}]: ").unwrap();

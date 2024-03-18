@@ -67,7 +67,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
             match file_read {
                 // Box for moving ownership upwards
                 Ok(read_contents) => content = Box::new(read_contents),
-                Err(e) => panic!("Error when reading '{path}': {e}"),
+                Err(e) => return Err(format!("Error when reading '{path}': {e}")),
             };
 
             let search_result = run_search(&config, &content);
@@ -81,13 +81,24 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
             for result in search_result {
                 writeln!(std_lock, "{result}").unwrap();
             }
+
+            Ok(())
         });
 
         handles.push(handle);
     }
 
     for handle in handles {
-        handle.join().unwrap();
+        match handle.join() {
+            // Handling application error
+            Ok(result) => {
+                if let Err(err) = result {
+                    eprintln!("\n{err}")
+                }
+            }
+            // Handling threading error
+            Err(e) => return Err(format!("Thread error: {:?}", e).into()),
+        }
     }
 
     Ok(())

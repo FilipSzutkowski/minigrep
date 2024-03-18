@@ -47,7 +47,9 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     if files_count == 1 {
         let path = &config.file_paths[0];
         let contents = read_to_string(path)?;
-        run_search(&config, &contents);
+        let results = run_search(&config, &contents);
+
+        print_results(results, &path);
 
         return Ok(());
     }
@@ -72,15 +74,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 
             let search_result = run_search(&config, &content);
 
-            // Locking stdout, so that the printed result
-            // appears in right order
-            let mut std_lock = stdout().lock();
-
-            writeln!(std_lock, "\n[{path}]: ").unwrap();
-
-            for result in search_result {
-                writeln!(std_lock, "{result}").unwrap();
-            }
+            print_results(search_result, &path);
 
             Ok(())
         });
@@ -130,6 +124,18 @@ pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a st
         .map(|line| line.trim())
         .filter(|line| line.to_lowercase().contains(&lowercase_query))
         .collect()
+}
+
+fn print_results(results: Vec<&str>, source: &str) {
+    // Locking stdout, so that the printed result
+    // appears in right order
+    let mut std_lock = stdout().lock();
+
+    writeln!(std_lock, "\n[{source}]: ").unwrap();
+
+    for result in results {
+        writeln!(std_lock, "{result}").unwrap();
+    }
 }
 
 #[cfg(test)]
